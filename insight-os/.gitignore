@@ -1,0 +1,14 @@
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/data/uploads/
+backend/data/parquet/
+backend/data/*.db
+backend/reports/
+.DS_Store
+evals/__pycache__/
+evals/**/__pycache__/
