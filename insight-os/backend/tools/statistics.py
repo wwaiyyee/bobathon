@@ -252,9 +252,6 @@ def outlier_sensitivity(
     from tools.analysis_engine import _resolve_metric_sql
 
     metric_sql = _resolve_metric_sql(metric, metric_defs)
-    safe_col = list(
-        v for k, v in {"SUM": f'"{metric}"'}.items()
-    )
 
     conn = duckdb.connect(":memory:")
 

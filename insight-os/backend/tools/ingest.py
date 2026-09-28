@@ -172,7 +172,7 @@ def _detect_header_row(raw: pd.DataFrame) -> int:
     for i, row in raw.iterrows():
         non_empty = (row.astype(str).str.strip() != "").sum()
         if non_empty > len(row) * 0.5:
-            return int(str(i))
+            return int(i)  # type: ignore[arg-type]
     return 0
 
 

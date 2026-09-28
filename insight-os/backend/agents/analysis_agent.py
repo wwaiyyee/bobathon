@@ -384,7 +384,7 @@ class AnalysisAgent:
             {
                 "role": "user",
                 "content": (
-                    f"Question: {session.conversation_history[-1]['content'] if session.conversation_history else ''}\n\n"
+                    f"Question: {session.conversation_history[-2]['content'] if len(session.conversation_history) >= 2 else (session.conversation_history[0]['content'] if session.conversation_history else '')}\n\n"
                     f"Evidence available:\n{evidence_summary}\n\n"
                     f"Validated findings:\n{claim_summary}\n\n"
                     "Write the answer using only these findings. Reference evidence IDs in parentheses."
@@ -443,11 +443,12 @@ class AnalysisAgent:
             date_col = date_cols[0] if date_cols else ""
 
             try:
+                version_obj = session.dataset_versions.get(primary_dataset_id)
                 ev = contribution_analysis(
-                    parquet_path=parquet_path,
-                    dataset_id=primary_dataset_id,
-                    version_id=session.dataset_versions.get(primary_dataset_id, Finding(id="", session_id="", claim="")).id if primary_dataset_id in session.dataset_versions else "",
-                    metric=root_finding.metric,
+                     parquet_path=parquet_path,
+                     dataset_id=primary_dataset_id,
+                     version_id=version_obj.id if version_obj else "",
+                     metric=root_finding.metric,
                     date_col=date_col,
                     current_window=TimeWindow(),
                     baseline_window=TimeWindow(),

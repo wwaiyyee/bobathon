@@ -179,10 +179,6 @@ def check_data_quality(
 
     # Duplicate rows
     try:
-        dup_count = conn.execute(
-            f"SELECT COUNT(*) - COUNT(*) OVER () + COUNT(DISTINCT *) FROM data"
-        ).fetchone()
-        # Simpler approach
         total = conn.execute("SELECT COUNT(*) FROM data").fetchone()[0]  # type: ignore[index]
         distinct = conn.execute(
             "SELECT COUNT(*) FROM (SELECT DISTINCT * FROM data)"
