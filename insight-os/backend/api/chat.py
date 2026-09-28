@@ -98,13 +98,13 @@ async def chat(request: ChatRequest):
                         "session_id": session_id,
                         "tier": tier,
                         "answer": result.answer_text,
-                        "findings": [f.model_dump() for f in result.findings],
-                        "evidence": [e.model_dump() for e in result.evidence],
-                        "charts": [c.model_dump() for c in result.charts],
-                        "plan": result.plan_preview.model_dump() if result.plan_preview else None,
+                        "findings": [f.model_dump(mode="json") for f in result.findings],
+                        "evidence": [e.model_dump(mode="json") for e in result.evidence],
+                        "charts": [c.model_dump(mode="json") for c in result.charts],
+                        "plan": result.plan_preview.model_dump(mode="json") if result.plan_preview else None,
                     },
                 }
-                yield f"data: {json.dumps(payload)}\n\n"
+                yield f"data: {json.dumps(payload, default=str)}\n\n"
 
         except Exception as e:
             session.status = SessionStatus.error

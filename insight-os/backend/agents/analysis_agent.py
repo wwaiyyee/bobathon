@@ -483,3 +483,35 @@ class AnalysisAgent:
                 return []
 
         return []
+
+    def _build_charts(
+        self,
+        findings: List[Finding],
+        evidence_list: List[Evidence],
+        session: AnalysisSession,
+    ) -> List[Chart]:
+        from tools.chart_builder import build_chart
+        charts: List[Chart] = []
+        evidence_by_id = {e.id: e for e in evidence_list}
+
+        for finding in findings:
+            if not finding.evidence_id:
+                continue
+            ev = evidence_by_id.get(finding.evidence_id)
+            if not ev or ev.value is None:
+                continue
+
+            intent = "trend_over_time"
+            if isinstance(ev.value, dict) and any("share" in str(k) or "breakdown" in str(k) for k in ev.value.keys()):
+                intent = "comparison_across_categories"
+            elif isinstance(ev.value, (int, float)):
+                intent = "trend_over_time"
+
+            try:
+                chart = build_chart(finding, ev, analytical_intent=intent)
+                charts.append(chart)
+            except Exception:
+                continue
+
+        return charts
+

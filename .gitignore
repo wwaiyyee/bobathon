@@ -37,3 +37,4 @@ insight-os/backend/reports/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+SYSTEM_STATUS.md

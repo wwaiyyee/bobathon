@@ -49,9 +49,11 @@ async def create_analysis_plan(
             model=llm_client.strong_model,
         )
         plan = _parse_plan_response(response_text, question, session.id, metric_definitions)
-        if plan.specs:
+        valid_specs = [s for s in plan.specs if s.metric and s.metric.strip()]
+        if valid_specs:
+            plan.specs = valid_specs
             return plan
-    except Exception as e:
+    except Exception:
         pass
 
     return _build_fallback_plan(question, session, metric_definitions)
@@ -69,31 +71,45 @@ def _build_fallback_plan(
     date_cols = [e.column for e in dictionary if str(e.role) == "date"]
     dimension_cols = [e.column for e in dictionary if str(e.role) == "dimension"]
 
-    specs: List[AnalysisSpec] = []
-    metric = measure_cols[0] if measure_cols else (list(metric_definitions.keys())[0] if metric_definitions else "")
+    q_lower = question.lower()
+    chosen_metric = None
+    for col in measure_cols:
+        if col.lower() in q_lower:
+            chosen_metric = col
+            break
+    if not chosen_metric:
+        chosen_metric = measure_cols[0] if measure_cols else (list(metric_definitions.keys())[0] if metric_definitions else "")
 
-    if date_cols and metric:
-        specs.append(
-            AnalysisSpec(
-                analysis_type="compare_periods",
-                metric=metric,
-                date_col=date_cols[0],
-                dimensions=dimension_cols[:1],
-            )
-        )
-    elif dimension_cols and metric:
+    chosen_dim = None
+    for col in dimension_cols:
+        if col.lower() in q_lower:
+            chosen_dim = col
+            break
+    if not chosen_dim and dimension_cols:
+        chosen_dim = dimension_cols[0]
+
+    specs: List[AnalysisSpec] = []
+    if chosen_dim and chosen_metric:
         specs.append(
             AnalysisSpec(
                 analysis_type="contribution",
-                metric=metric,
-                dimensions=dimension_cols[:1],
+                metric=chosen_metric,
+                dimensions=[chosen_dim],
             )
         )
-    elif metric:
+    elif date_cols and chosen_metric:
+        specs.append(
+            AnalysisSpec(
+                analysis_type="compare_periods",
+                metric=chosen_metric,
+                date_col=date_cols[0],
+            )
+        )
+    elif chosen_metric:
         specs.append(
             AnalysisSpec(
                 analysis_type="generic",
-                metric=metric,
+                metric=chosen_metric,
             )
         )
 
@@ -103,7 +119,7 @@ def _build_fallback_plan(
         question=question,
         specs=specs,
         metric_definitions=metric_definitions,
-        reasoning="Automated heuristic plan derived from dataset schema (measures, dates, and dimensions).",
+        reasoning=f"Identified metric '{chosen_metric}' and dimension '{chosen_dim}' from question and schema.",
     )
 
 

@@ -55,9 +55,9 @@ class LLMClient:
                     from anthropic import AsyncAnthropic
                     self._client = AsyncAnthropic(api_key=api_key)
                 elif self.provider == "gemini":
-                    import google.generativeai as genai
-                    genai.configure(api_key=api_key)
-                    self._client = genai
+                    from google import genai
+                    client_instance = genai.Client(api_key=api_key)
+                    self._client = client_instance
             except Exception:
                 self._client = None
                 self.has_credentials = False
@@ -225,39 +225,36 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
     ) -> str:
-        """Gemini completion using google.generativeai SDK."""
-        import asyncio
-
+        """Gemini completion using google.genai SDK."""
         # Convert messages to Gemini format
-        system_content = ""
-        conversation = []
+        system_instruction = None
+        contents = []
+
         for m in messages:
             if m["role"] == "system":
-                system_content = m["content"]
+                system_instruction = m["content"]
             elif m["role"] == "user":
-                conversation.append({"role": "user", "parts": [m["content"]]})
+                contents.append({"role": "user", "parts": [{"text": m["content"]}]})
             elif m["role"] == "assistant":
-                conversation.append({"role": "model", "parts": [m["content"]]})
+                contents.append({"role": "model", "parts": [{"text": m["content"]}]})
 
-        # Create model instance
-        gemini_model = self._client.GenerativeModel(
-            model_name=model,
-            system_instruction=system_content if system_content else None
+        # Build config
+        config = {
+            "temperature": temperature,
+            "max_output_tokens": max_tokens,
+        }
+
+        if system_instruction:
+            config["system_instruction"] = system_instruction
+
+        # Generate content
+        response = await self._client.aio.models.generate_content(
+            model=model,
+            contents=contents,
+            config=config
         )
 
-        # Generate content (Gemini SDK is synchronous, wrap in executor)
-        def _sync_generate():
-            response = gemini_model.generate_content(
-                conversation,
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": max_tokens,
-                }
-            )
-            return response.text if response.text else ""
-
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _sync_generate)
+        return response.text if hasattr(response, 'text') and response.text else ""
 
 
 # ---------------------------------------------------------------------------
