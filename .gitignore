@@ -1,1 +1,39 @@
-node_modules
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Runtime data
+insight-os/backend/data/uploads/
+insight-os/backend/data/parquet/
+insight-os/backend/data/*.db
+insight-os/backend/reports/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

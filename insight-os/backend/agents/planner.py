@@ -43,13 +43,68 @@ async def create_analysis_plan(
         {"role": "user", "content": prompt},
     ]
 
-    response_text = await llm_client.chat_completion(
-        messages=messages,
-        model=llm_client.strong_model,
-    )
+    try:
+        response_text = await llm_client.chat_completion(
+            messages=messages,
+            model=llm_client.strong_model,
+        )
+        plan = _parse_plan_response(response_text, question, session.id, metric_definitions)
+        if plan.specs:
+            return plan
+    except Exception as e:
+        pass
 
-    plan = _parse_plan_response(response_text, question, session.id, metric_definitions)
-    return plan
+    return _build_fallback_plan(question, session, metric_definitions)
+
+
+def _build_fallback_plan(
+    question: str,
+    session: AnalysisSession,
+    metric_definitions: Dict[str, str],
+) -> AnalysisPlan:
+    primary_dataset_id = session.dataset_ids[0] if session.dataset_ids else ""
+    dictionary = session.dictionaries.get(primary_dataset_id, [])
+
+    measure_cols = [e.column for e in dictionary if str(e.role) == "measure"]
+    date_cols = [e.column for e in dictionary if str(e.role) == "date"]
+    dimension_cols = [e.column for e in dictionary if str(e.role) == "dimension"]
+
+    specs: List[AnalysisSpec] = []
+    metric = measure_cols[0] if measure_cols else (list(metric_definitions.keys())[0] if metric_definitions else "")
+
+    if date_cols and metric:
+        specs.append(
+            AnalysisSpec(
+                analysis_type="compare_periods",
+                metric=metric,
+                date_col=date_cols[0],
+                dimensions=dimension_cols[:1],
+            )
+        )
+    elif dimension_cols and metric:
+        specs.append(
+            AnalysisSpec(
+                analysis_type="contribution",
+                metric=metric,
+                dimensions=dimension_cols[:1],
+            )
+        )
+    elif metric:
+        specs.append(
+            AnalysisSpec(
+                analysis_type="generic",
+                metric=metric,
+            )
+        )
+
+    return AnalysisPlan(
+        id=str(uuid.uuid4()),
+        session_id=session.id,
+        question=question,
+        specs=specs,
+        metric_definitions=metric_definitions,
+        reasoning="Automated heuristic plan derived from dataset schema (measures, dates, and dimensions).",
+    )
 
 
 def plan_to_specs(plan: AnalysisPlan, session: AnalysisSession) -> List[AnalysisSpec]:
