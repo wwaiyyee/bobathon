@@ -30,75 +30,105 @@ The system is designed around the principle that **every insight must have trace
 
 ## How I Used IBM Bob in My Development Process
 
-IBM Bob was my **AI coding partner throughout the entire development lifecycle** of Analyx. As a solo developer building a complex multi-agent analytical platform during a hackathon, Bob was instrumental in turning an ambitious idea into a working product within the time constraints.
-
-Here is a honest, specific account of how Bob was used at each stage.
+IBM Bob was my **AI coding partner across every phase of this project** — from whiteboard architecture to production bug fixes. Below is a concrete, honest account of what Bob did and how I interacted with it.
 
 ---
 
-### 🧠 Architecture Design & Planning
+### 🧠 Phase 1 — Architecture Design
 
-The project started with a whiteboard problem: *"How do you build a data analysis system where every answer is provably correct?"* I described this challenge to Bob and we worked through the architecture conversationally.
+The project started with a single design question: *"How do you build a data analysis system where every answer is provably correct?"* I brought this to Bob in Plan mode before writing a single line of code.
 
-Bob helped me arrive at the core design decisions:
+Through a series of conversational prompts, Bob helped me work out:
 
-- **The 5-agent pipeline** — Router → Planner → Analyst → Validator → Reporter. Bob challenged me on the responsibility boundaries between agents and helped define clear data contracts between them (see [`agents/`](insight-os/backend/agents/)).
-- **The tiered budget system** — Rather than running every question through the heaviest pipeline, Bob suggested classifying requests into tiers (Lookup / Analysis / Investigation / Report) each with calibrated compute limits (`max_tool_calls`, `max_llm_tokens`, `target_latency_s`). This shaped the entire [`router.py`](insight-os/backend/agents/router.py) and [`Budget`](insight-os/backend/models/core.py) model.
-- **Evidence-first data modelling** — Bob helped me see that the domain model needed `Evidence` as a first-class entity, not just a log. Every `Finding` and `Claim` links to traceable evidence records. This design is baked into [`models/core.py`](insight-os/backend/models/core.py) with over 15 Pydantic types.
+- **The 5-agent pipeline** — Router → Planner → Analyst → Validator → Reporter. Bob challenged me on the responsibility boundaries between agents and helped define clear data contracts between them. The result is the [`agents/`](insight-os/backend/agents/) directory.
+- **The tiered budget system** — Rather than routing every question through the heaviest pipeline, Bob suggested classifying requests into four tiers (Lookup / Analysis / Investigation / Report), each with calibrated compute limits (`max_tool_calls`, `max_llm_tokens`, `target_latency_s`). This concept shaped the entire [`router.py`](insight-os/backend/agents/router.py) and the [`Budget`](insight-os/backend/models/core.py) model.
+- **Evidence as a first-class domain object** — Bob helped me realise that `Evidence` needed to be a proper Pydantic model with its own ID, not just a log entry. Every `Finding` links back to a traceable `Evidence` record. This is baked into [`models/core.py`](insight-os/backend/models/core.py).
 
 ---
 
-### 💻 Code Generation — What Bob Actually Wrote
+### 💻 Phase 2 — Backend Code Generation
 
-Bob generated substantial portions of the backend through a series of targeted prompts. Below are the specific modules and the role Bob played in each:
+Bob generated substantial portions of the backend through targeted prompts. Here is what was built, module by module:
 
-#### `agents/router.py` — Request Tier Classification
-I described the routing logic in plain English ("classify questions by complexity, assign a compute budget"). Bob produced the keyword-heuristic regex patterns (`_LOOKUP_SIGNALS`, `_INVESTIGATION_SIGNALS`, etc.) and the `TIER_BUDGETS` dictionary mapping each tier to its `Budget` constraints. I reviewed, tested, and added the edge case for long free-text questions that fall through the keyword checks.
+#### `agents/router.py`
+I described the routing logic in plain English. Bob produced the keyword-heuristic regex patterns (`_LOOKUP_SIGNALS`, `_INVESTIGATION_SIGNALS`, `_REPORT_SIGNALS`) and the `TIER_BUDGETS` dictionary. I reviewed and added edge-case handling for long free-text questions that fall through the keyword checks.
 
-#### `agents/analysis_agent.py` — Core Orchestrator
-The `AnalysisAgent` is the heart of the pipeline. Bob scaffolded the `AgentResult` and `IntentResult` dataclasses, the async `run()` method signature, and the overall execution flow. The explicit `status_updates` list (used to stream progress to the frontend) was a Bob suggestion I accepted after discussion.
+#### `agents/analysis_agent.py`
+The `AnalysisAgent` is the core orchestrator. Bob scaffolded the `AgentResult` and `IntentResult` dataclasses, the async `run()` method, and the 11-step execution flow. The `status_updates` list (used to stream live progress to the frontend) was a Bob suggestion I accepted after discussion.
 
-#### `validators/language_lint.py` — Causal Language Detection
-This was one of the most interesting Bob collaborations. I explained the core requirement: *"LLMs tend to overstate causation — we need to catch phrases like 'caused' or 'led to' and rewrite them to associational language."* Bob produced the `CAUSAL_PATTERNS` regex list and the `ASSOCIATIONAL_REWRITES` mapping (e.g., `"caused"` → `"is associated with"`, `"due to"` → `"coinciding with"`) along with the `_match_case` helper to preserve sentence capitalisation. The resulting [`language_lint.py`](insight-os/backend/validators/language_lint.py) required minimal editing.
+#### `validators/language_lint.py`
+I explained: *"LLMs overstate causation — we need to catch phrases like 'caused' or 'led to' and rewrite them to associational language."* Bob produced the full `CAUSAL_PATTERNS` list and `ASSOCIATIONAL_REWRITES` dictionary (e.g. `"caused"` → `"is associated with"`, `"due to"` → `"coinciding with"`) and the `_match_case` helper to preserve sentence capitalisation.
 
-#### `models/core.py` — Domain Type Hierarchy
-I described the conceptual hierarchy — sessions contain findings, findings contain claims, claims reference evidence — and Bob generated the full Pydantic model file. The enum design (`ClaimType`, `ClaimStrength`, `EvidenceStatus`, `SufficiencyVerdict`) came directly from a conversation about what metadata each claim needed to carry for the validation pipeline to make meaningful decisions.
+#### `models/core.py`
+I described the conceptual hierarchy — sessions contain findings, findings contain evidence — and Bob generated the complete Pydantic model file with 15+ types and a rich enum hierarchy (`ClaimType`, `ClaimStrength`, `EvidenceStatus`, `SufficiencyVerdict`).
 
 #### `tools/` — Analytical Toolkit
-Bob generated the scaffolding and implementation stubs for the analytical tools layer: `analysis_engine.py`, `chart_builder.py`, `data_profiler.py`, `data_quality.py`, `statistics.py`, `evidence.py`, and `join_checker.py`. For each tool I described the inputs, outputs, and key operations; Bob wrote the initial implementation that I then refined.
+Bob generated the scaffolding and initial implementations for: `analysis_engine.py`, `chart_builder.py`, `data_profiler.py`, `data_quality.py`, `statistics.py`, `evidence.py`, `join_checker.py`, `ingest.py`, `sufficiency.py`, and `python_executor.py`. For each I described the inputs, outputs, and key operations; Bob wrote the implementation I then refined.
+
+#### `services/llm_client.py` and `services/session_store.py`
+Bob built the LLM abstraction layer supporting OpenAI and Anthropic with automatic system prompt injection and graceful offline fallback. The `SessionStore` combining in-memory cache with SQLite persistence was also Bob-generated.
 
 ---
 
-### 🔄 Iterative Refinement Through Dialogue
+### 🔄 Phase 3 — Iterative Refinement
 
-Development was not a single prompt-and-done process. It was a continuous back-and-forth where Bob's outputs evolved through conversation:
+Development was a continuous dialogue:
 
-1. I would describe a requirement or show a failing behaviour
-2. Bob would generate or revise code
-3. I would review, test, and raise edge cases ("What if the LLM returns malformed JSON?", "What if the uploaded file has no header row?")
-4. Bob would add fallback logic, extend error handling, or propose an alternative approach
+1. I described a requirement or showed a failing behaviour
+2. Bob generated or revised code
+3. I reviewed, tested, raised edge cases ("What if the LLM returns malformed JSON?", "What if the uploaded file has no header row?")
+4. Bob added fallback logic, extended error handling, or proposed an alternative
 
-A concrete example: the `ClaimStrength` enum was originally a boolean `is_strong`. Through a conversation with Bob about how the language linter should behave differently for speculative vs. moderate claims, we refactored it into a four-value enum (`strong`, `moderate`, `weak`, `speculative`) that now drives the linting logic in `language_lint.py`.
-
----
-
-### 🐛 Debugging
-
-Bob was used actively for debugging throughout the build. Specific cases:
-
-- **Async session management** — An intermittent bug in `session_store.py` where concurrent requests would corrupt session state. I pasted the relevant code and stack trace into Bob; it identified the missing `await` on a nested `aiosqlite` call and the lack of per-session locking.
-- **Parquet type coercion** — `PyArrow` was rejecting certain Excel files because of mixed-type columns. Bob diagnosed the issue from the error message and suggested the `coerce_to_utf8=True` flag on the write path.
-- **Pydantic v2 model serialisation** — Several `model_dump()` calls were returning unexpected shapes after a dependency upgrade. Bob identified the breaking change between Pydantic v1 and v2 serialisation defaults and updated the affected call sites.
+**A concrete example:** the `ClaimStrength` enum was originally a boolean `is_strong`. Through a conversation about how the language linter should behave differently for speculative vs. moderate claims, Bob refactored it into a four-value enum that now drives the linting logic in [`language_lint.py`](insight-os/backend/validators/language_lint.py).
 
 ---
 
-### 📝 Documentation & Code Organisation
+### 🐛 Phase 4 — Bug Hunting and Fixes
 
-Bob contributed:
+During the cleanup and testing phase I asked Bob to read through the entire codebase and identify bugs. Bob found and fixed six issues in a single pass:
 
-- **Inline docstrings** on every public function, written to explain the *why* not just the *what*
-- **Section header comments** (`# ---------------------------------------------------------------------------`) used consistently across all modules to divide logical blocks — visible throughout the codebase
-- **`.env.example`** with every required and optional variable documented inline
+| Bug | File | What Bob Found |
+|---|---|---|
+| **Dummy `Finding` object for version ID** | `agents/analysis_agent.py` | `_run_insight_tree` was constructing a throwaway `Finding(id="", ...)` object just to call `.id` on it as a fallback — replaced with a proper `.get()` guard |
+| **Deprecated `@app.on_event`** | `api/main.py` | FastAPI 0.111 deprecates the old event hook; Bob rewrote it as a proper `@asynccontextmanager` lifespan function |
+| **Dead window-function SQL** | `tools/data_quality.py` | `SELECT COUNT(*) - COUNT(*) OVER () + COUNT(DISTINCT *)` executes but its result was immediately discarded; removed |
+| **`IndexError` on empty history** | `agents/analysis_agent.py` | `session.conversation_history[-1]` was called before history was appended, crashing on the first message |
+| **`int(str(i))` on pandas index** | `tools/ingest.py` | `_detect_header_row` cast the index via `str()` first — works for `RangeIndex` but raises `ValueError` for any other index type |
+| **Unused list comprehension** | `tools/statistics.py` | `safe_col` was built from a single-item dict and never read; removed |
+
+---
+
+### 🌐 Phase 5 — Frontend UI (Bob-built end to end)
+
+The entire Next.js frontend workspace was built by Bob. I described the workflow I wanted and Bob wrote all of it:
+
+#### `app/lib/api.ts` — Typed API Client
+Bob designed a clean async fetch client with:
+- `uploadDataset()` — multipart POST
+- `listDatasets()` — restore persisted datasets on load
+- `streamChat()` — async generator that parses the SSE stream, yielding typed events (`status_update`, `result`, `clarification_needed`, `error`, `done`)
+- `generateReport()` — triggers the 10-section report
+
+#### `app/app/page.tsx` — Full Workspace UI
+Bob built the complete single-page workspace:
+- **Sidebar** — drag-and-drop style upload button, dataset list with active/inactive toggle (click to include/exclude from context), session-aware "Generate Report" button
+- **Chat area** — streaming status pulses while the pipeline runs, user/assistant message bubbles, finding cards with colour-coded evidence status badges (✓ Supported / ~ Partial / ✗ Insufficient), tier and session metadata
+- **Report panel** — slides in on the right when generated, shows all 10 sections, closeable
+
+#### `next.config.ts` — API Proxy
+Bob added a rewrite rule to proxy `/api/:path*` → `http://localhost:8000/:path*`, eliminating all CORS configuration from both sides.
+
+---
+
+### 🔒 Phase 6 — Project Cleanup
+
+Bob also handled repository hygiene as a dedicated task:
+- Rewrote `.gitignore` from a single `node_modules` line to a comprehensive file covering Python virtualenvs, `__pycache__`, `.env`, build output, runtime data files, and macOS `.DS_Store`
+- Removed `.DS_Store` from git tracking
+- Consolidated `insight-os/.gitignore` into the root
+- Deleted unused default Next.js SVGs from `public/`
+- Added `insight-os/backend/.venv/**` to ESLint's ignore list (it was scanning thousands of venv JS files)
+- Caught and removed `SYSTEM_STATUS.md` from a commit after noticing it contained a live API key
 
 ---
 
@@ -106,17 +136,19 @@ Bob contributed:
 
 | Bob Feature | How It Was Used |
 |---|---|
-| **Agent mode (code generation)** | Generating full module implementations from natural-language descriptions |
-| **Plan mode** | Designing the multi-agent architecture and data model before writing code |
-| **Iterative refinement** | Refining generated code through follow-up prompts and edge-case discussion |
-| **Debugging assistance** | Pasting error traces and receiving targeted, context-aware fixes |
-| **Documentation generation** | Generating docstrings and inline comments for all modules |
+| **Plan mode** | Designing the multi-agent architecture and data model hierarchy before any code was written |
+| **Agent mode (code generation)** | Generating full module implementations from natural-language descriptions across 20+ files |
+| **Codebase-wide analysis** | Reading every file in the project to find bugs — Bob traced the full call graph rather than just checking isolated snippets |
+| **Iterative refinement** | Evolving generated code through follow-up prompts and edge-case discussion |
+| **Debugging** | Pasting error traces and receiving targeted, context-aware fixes with explanations |
+| **Documentation generation** | Generating docstrings, inline section headers, and this README |
+| **Repository cleanup** | Auditing git state, fixing `.gitignore`, removing tracked artefacts |
 
 ---
 
 ### Impact
 
-Using IBM Bob as my AI coding partner allowed me to **build a production-quality analytical platform in hackathon time**. The most valuable aspect was not raw code generation — it was having a design partner to pressure-test architectural decisions, catch edge cases early, and maintain consistency across a codebase that grew to span 5 agents, 11 tools, 4 validators, and 15+ domain types.
+Bob allowed me to **build a production-quality analytical platform in hackathon time**. The most valuable aspect was not raw code generation speed — it was having a design partner that held the full context of the system, challenged architectural decisions, caught bugs I would have missed, and maintained consistency across a codebase spanning 5 agents, 11 tools, 4 validators, 2 services, and 15+ domain types.
 
 ---
 
@@ -125,9 +157,10 @@ Using IBM Bob as my AI coding partner allowed me to **build a production-quality
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   Next.js Frontend                  │
-│              (React 19 + Tailwind CSS)              │
+│         (React 19 + Tailwind CSS + SSE client)      │
+│  Upload │ Chat │ Findings │ Evidence │ Report panel  │
 └──────────────────────┬──────────────────────────────┘
-                       │ HTTP/REST
+                       │ HTTP/REST + SSE (/api/* proxy)
 ┌──────────────────────▼──────────────────────────────┐
 │                   FastAPI Backend                    │
 │  ┌───────────┐ ┌──────────┐ ┌────────┐ ┌─────────┐ │
@@ -179,32 +212,33 @@ Using IBM Bob as my AI coding partner allowed me to **build a production-quality
 - **Multi-Format Ingestion** — CSV, Excel, with automatic encoding detection, header inference, and total-row removal
 - **DuckDB-Powered Analytics** — Fast in-process SQL for aggregations and statistical operations
 - **Vega-Lite Charts** — Auto-generated chart specs matched to analytical intent
-- **Dual LLM Support** — OpenAI (GPT-4o) or Anthropic (Claude) via configurable provider
+- **Full-Stack UI** — React chat interface with SSE streaming, evidence status badges, and report panel
+- **Triple LLM Support** — OpenAI, Anthropic, or Google Gemini via configurable provider
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-| Technology  | Purpose             |
-|-------------|---------------------|
-| Next.js 16  | React framework     |
-| React 19    | UI library          |
-| Tailwind CSS 4 | Styling          |
-| TypeScript  | Type safety         |
+| Technology     | Purpose                          |
+|----------------|----------------------------------|
+| Next.js 16     | React framework + API proxy      |
+| React 19       | UI library                       |
+| Tailwind CSS 4 | Styling                          |
+| TypeScript     | Type safety                      |
 
 ### Backend
-| Technology     | Purpose                      |
-|----------------|------------------------------|
-| FastAPI        | API framework                |
-| Python 3.11+   | Runtime                      |
-| DuckDB         | In-process analytics engine  |
-| Pandas / NumPy | Data manipulation            |
-| SciPy / Scikit-learn | Statistical analysis   |
-| PyArrow / Parquet | Columnar data storage     |
-| OpenAI / Anthropic SDK | LLM providers         |
-| Pydantic       | Data validation & models     |
-| SQLite (aiosqlite) | Session persistence      |
+| Technology              | Purpose                      |
+|-------------------------|------------------------------|
+| FastAPI                 | API framework + SSE          |
+| Python 3.11+            | Runtime                      |
+| DuckDB                  | In-process analytics engine  |
+| Pandas / NumPy          | Data manipulation            |
+| SciPy / Scikit-learn    | Statistical analysis         |
+| PyArrow / Parquet       | Columnar data storage        |
+| OpenAI / Anthropic / Gemini SDK | LLM providers        |
+| Pydantic                | Data validation & models     |
+| SQLite (aiosqlite)      | Session + dataset persistence |
 
 ---
 
@@ -213,17 +247,26 @@ Using IBM Bob as my AI coding partner allowed me to **build a production-quality
 ```
 bobathon/
 ├── app/                        # Next.js frontend
-│   ├── page.tsx                # Main page
-│   ├── layout.tsx              # Root layout
+│   ├── app/
+│   │   └── page.tsx            # Full workspace UI (upload, chat, findings, report)
+│   ├── lib/
+│   │   └── api.ts              # Typed fetch client (SSE streaming, upload, report)
+│   ├── page.tsx                # Root — renders the workspace
+│   ├── layout.tsx              # Root layout + metadata
 │   └── globals.css             # Global styles
+│
+├── public/
+│   └── samples/                # Sample CSV datasets for testing
+│       ├── ecommerce_sales.csv
+│       └── saas_revenue_metrics.csv
 │
 ├── insight-os/backend/         # Python backend
 │   ├── api/                    # FastAPI routes
-│   │   ├── main.py             # App entrypoint & CORS
+│   │   ├── main.py             # App entrypoint, CORS, lifespan
 │   │   ├── datasets.py         # Dataset upload & management
-│   │   ├── chat.py             # Conversational analysis
-│   │   ├── analysis.py         # Direct analysis endpoints
-│   │   └── reports.py          # Report generation
+│   │   ├── chat.py             # Conversational analysis (SSE stream)
+│   │   ├── analysis.py         # Findings, evidence, prove endpoints
+│   │   └── reports.py          # Report generation & export
 │   │
 │   ├── agents/                 # Multi-agent system
 │   │   ├── router.py           # Request tier classification
@@ -233,7 +276,7 @@ bobathon/
 │   │   └── validator.py        # LLM semantic review
 │   │
 │   ├── tools/                  # Analytical tools
-│   │   ├── analysis_engine.py  # Core computation engine
+│   │   ├── analysis_engine.py  # Core computation engine (DuckDB)
 │   │   ├── chart_builder.py    # Vega-Lite chart generation
 │   │   ├── data_profiler.py    # Dataset profiling
 │   │   ├── data_quality.py     # Data quality checks
@@ -246,25 +289,26 @@ bobathon/
 │   │   └── python_executor.py  # Sandboxed code execution
 │   │
 │   ├── validators/             # Validation pipeline
-│   │   ├── language_lint.py    # Causal language detection
+│   │   ├── language_lint.py    # Causal language detection & rewrite
 │   │   ├── number_lint.py      # Numerical accuracy checks
 │   │   ├── recompute.py        # Finding recomputation
 │   │   └── evidence_status.py  # Evidence status scoring
 │   │
 │   ├── models/
-│   │   └── core.py             # Pydantic domain models
+│   │   └── core.py             # Pydantic domain models (15+ types)
 │   │
 │   ├── services/
-│   │   ├── llm_client.py       # LLM abstraction (OpenAI/Anthropic)
-│   │   └── session_store.py    # Session persistence
+│   │   ├── llm_client.py       # LLM abstraction (OpenAI/Anthropic/Gemini)
+│   │   └── session_store.py    # Session + dataset persistence (SQLite)
 │   │
-│   ├── data/                   # Runtime data storage
-│   │   ├── uploads/            # Uploaded files
-│   │   └── parquet/            # Converted parquet files
+│   ├── data/                   # Runtime data storage (gitignored)
+│   │   ├── uploads/
+│   │   └── parquet/
 │   │
 │   ├── requirements.txt
 │   └── .env.example
 │
+├── next.config.ts              # Next.js config with /api/* → backend proxy
 ├── package.json
 └── README.md
 ```
@@ -277,7 +321,7 @@ bobathon/
 
 - **Node.js** 18+
 - **Python** 3.11+
-- **OpenAI API key** or **Anthropic API key**
+- **API key** for OpenAI, Anthropic, or Google Gemini
 
 ### 1. Clone the repository
 
@@ -297,7 +341,7 @@ npm install
 ```bash
 cd insight-os/backend
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -307,16 +351,21 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` with your API keys:
+Edit `insight-os/backend/.env` with your provider and key:
 
 ```env
+# Choose one provider:
+LLM_PROVIDER=openai          # or "anthropic" or "gemini"
+
 OPENAI_API_KEY=sk-...
-# or
-ANTHROPIC_API_KEY=sk-ant-...
-LLM_PROVIDER=openai          # or "anthropic"
-STRONG_MODEL=gpt-4o
-FAST_MODEL=gpt-4o-mini
+# ANTHROPIC_API_KEY=sk-ant-...
+# GEMINI_API_KEY=AIza...
+
+STRONG_MODEL=gpt-4o          # gemini-1.5-pro  |  claude-3-5-sonnet-20241022
+FAST_MODEL=gpt-4o-mini       # gemini-1.5-flash |  claude-3-haiku-20240307
 ```
+
+> **No API key?** The system runs in offline/heuristic mode — the pipeline still executes, computes evidence, and validates findings; only the LLM narrative generation is replaced with deterministic templates.
 
 ### 5. Run the application
 
@@ -334,43 +383,50 @@ uvicorn api.main:app --reload --port 8000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to use Analyx.
+Open [http://localhost:3000](http://localhost:3000) — you'll land directly in the workspace.
 
 ---
 
 ## API Endpoints
 
-| Method | Endpoint         | Description                          |
-|--------|------------------|--------------------------------------|
-| GET    | `/health`        | Health check                         |
-| POST   | `/datasets/`     | Upload a dataset (CSV/Excel)         |
-| GET    | `/datasets/`     | List all datasets                    |
-| POST   | `/chat/`         | Send a natural-language question     |
-| POST   | `/analysis/`     | Run a direct analysis                |
-| POST   | `/reports/`      | Generate a full analytical report    |
+| Method | Endpoint                                      | Description                                  |
+|--------|-----------------------------------------------|----------------------------------------------|
+| GET    | `/health`                                     | Health check                                 |
+| POST   | `/datasets/upload`                            | Upload a CSV or Excel file                   |
+| GET    | `/datasets`                                   | List all registered datasets                 |
+| GET    | `/datasets/{id}`                              | Dataset info + column profile                |
+| GET    | `/datasets/{id}/quality`                      | Data quality report                          |
+| GET    | `/datasets/{id}/rows`                         | Paginated row viewer                         |
+| POST   | `/chat`                                       | Send a question (SSE stream response)        |
+| GET    | `/chat/{session_id}/history`                  | Conversation history                         |
+| GET    | `/analysis/{session_id}/findings`             | All findings with evidence status            |
+| POST   | `/analysis/{session_id}/findings/{id}/prove`  | Re-run computation to verify a finding       |
+| POST   | `/reports/generate`                           | Generate a 10-section analytical report      |
+| GET    | `/reports/{session_id}/markdown`              | Download report as Markdown                  |
+| GET    | `/reports/{session_id}/html`                  | Download report as HTML                      |
 
 ---
 
 ## How It Works
 
-1. **Upload** — User uploads a CSV or Excel file. The ingestion pipeline detects encoding, infers headers, removes total rows, converts to Parquet, and builds a data dictionary with column roles (date, measure, dimension).
+1. **Upload** — User uploads a CSV or Excel file. The ingestion pipeline detects encoding, infers headers, removes total rows, converts to Parquet, and builds a data dictionary with column roles (date, measure, dimension). Datasets persist across server restarts via SQLite.
 
-2. **Ask** — User asks a question in natural language (e.g., *"Why did revenue decline in Q3?"*).
+2. **Ask** — User types a question in the chat interface (e.g., *"Why did revenue decline in Q3?"*). The frontend sends it to `/chat` and opens an SSE stream.
 
-3. **Route** — The Router classifies the question into a tier (Lookup / Analysis / Investigation / Report) using keyword heuristics, and assigns a compute budget.
+3. **Route** — The Router classifies the question into a tier (Lookup / Analysis / Investigation / Report) using keyword heuristics and assigns a compute budget.
 
-4. **Plan** — The Planner sends the data schema (never raw data) to the LLM to produce a structured analysis plan with specs for each computation.
+4. **Plan** — The Planner sends the data schema — never raw data — to the LLM to produce a structured analysis plan with typed specs for each computation.
 
-5. **Execute** — The Analysis Agent executes each spec using the analytical tools (DuckDB queries, statistical tests, anomaly detection, contribution analysis).
+5. **Execute** — The Analysis Agent executes each spec using the analytical tools: DuckDB queries, statistical tests, anomaly detection, contribution analysis. Each result is stored as a traceable `Evidence` record.
 
 6. **Validate** — Every finding passes through the 3-layer validation pipeline:
-   - Language lint catches causal overstatement
-   - Numerical recomputation verifies correctness
-   - Evidence status scores the claim's support level
+   - Language lint catches causal overstatement and rewrites it
+   - Numerical recomputation independently re-derives the finding
+   - Evidence status scoring grades the claim (supported / partial / insufficient)
 
-7. **Synthesize** — The LLM generates a narrative answer using only evidence IDs and validated claims — never raw data.
+7. **Stream** — Status updates are streamed to the UI in real time via SSE. The final answer, findings, evidence records, and tier metadata are delivered in a single result event.
 
-8. **Report** — For report-tier questions, a 10-section professional report is generated with executive summary, methodology, limitations, and reproducibility metadata.
+8. **Report** — Clicking "Generate Report" triggers the Report Agent to produce a 10-section professional report (Executive Summary, Key Findings, Anomalies, Data Quality, Methodology, Limitations, Next Steps, Reproducibility). The report panel slides in on the right.
 
 ---
 
