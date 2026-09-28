@@ -1,0 +1,16 @@
+order_date,revenue,units_sold,category,region,discount_pct,profit_margin
+2024-01-15,48200,320,Electronics,North,0.05,24.5
+2024-02-14,52400,360,Electronics,North,0.08,22.1
+2024-03-20,61000,410,Apparel,South,0.12,18.9
+2024-04-18,58900,395,Home & Kitchen,West,0.06,26.4
+2024-05-25,67300,450,Electronics,East,0.10,21.0
+2024-06-30,74100,510,Electronics,North,0.04,28.2
+2024-07-22,69800,475,Apparel,West,0.15,16.5
+2024-08-19,78200,530,Home & Kitchen,East,0.05,25.8
+2024-09-15,83500,580,Electronics,South,0.07,24.0
+2024-10-28,91200,640,Electronics,North,0.09,23.5
+2024-11-25,115400,820,Apparel,East,0.20,15.2
+2024-12-20,134800,960,Electronics,North,0.15,20.4
+2025-01-18,89200,610,Home & Kitchen,West,0.05,27.1
+2025-02-22,94600,650,Electronics,South,0.08,23.8
+2025-03-15,102100,710,Apparel,North,0.10,19.5

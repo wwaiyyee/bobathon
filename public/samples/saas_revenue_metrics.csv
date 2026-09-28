@@ -1,0 +1,16 @@
+date,mrr,churn_rate,new_customers,region,segment,cac,arpu
+2024-01-01,124500,2.1,142,North America,Enterprise,450,876
+2024-02-01,131200,2.3,156,North America,Enterprise,460,841
+2024-03-01,138900,1.9,168,North America,Enterprise,440,826
+2024-04-01,142300,2.5,149,North America,Mid-Market,490,955
+2024-05-01,149800,2.2,165,North America,Mid-Market,480,907
+2024-06-01,158200,1.8,184,North America,Enterprise,430,859
+2024-07-01,162100,2.7,160,Europe,Enterprise,510,1013
+2024-08-01,168500,2.4,175,Europe,Mid-Market,495,962
+2024-09-01,174200,2.1,189,Europe,Enterprise,470,921
+2024-10-01,181000,1.7,204,Asia-Pacific,Mid-Market,420,887
+2024-11-01,189400,1.6,220,Asia-Pacific,Enterprise,410,860
+2024-12-01,198600,1.5,238,Asia-Pacific,Enterprise,395,834
+2025-01-01,206800,2.0,225,North America,Enterprise,435,919
+2025-02-01,214500,2.2,231,North America,Mid-Market,445,928
+2025-03-01,223100,1.8,249,North America,Enterprise,420,895

@@ -32,7 +32,7 @@ class SessionStore:
         self._sessions: Dict[str, AnalysisSession] = {}
 
     async def init_db(self) -> None:
-        """Create the sessions table if it doesn't exist."""
+        """Create required tables and load persisted datasets and dictionaries."""
         os.makedirs(os.path.dirname(_DB_PATH) if os.path.dirname(_DB_PATH) else ".", exist_ok=True)
         async with aiosqlite.connect(_DB_PATH) as db:
             await db.execute(
@@ -44,7 +44,37 @@ class SessionStore:
                 )
                 """
             )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS datasets (
+                    id TEXT PRIMARY KEY,
+                    data TEXT NOT NULL
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS dictionaries (
+                    dataset_id TEXT PRIMARY KEY,
+                    data TEXT NOT NULL
+                )
+                """
+            )
             await db.commit()
+
+            # Restore cached datasets and dictionaries
+            try:
+                async with db.execute("SELECT id, data FROM datasets") as cursor:
+                    async for row in cursor:
+                        _dataset_registry[row[0]] = DatasetVersion.model_validate_json(row[1])
+                async with db.execute("SELECT dataset_id, data FROM dictionaries") as cursor:
+                    async for row in cursor:
+                        entries = json.loads(row[1])
+                        _dictionary_registry[row[0]] = [
+                            DataDictionaryEntry.model_validate(e) for e in entries
+                        ]
+            except Exception:
+                pass
 
     async def get_session(self, session_id: str) -> Optional[AnalysisSession]:
         """Get a session from memory, falling back to SQLite."""
@@ -117,8 +147,18 @@ class SessionStore:
             pass
 
     def register_dataset(self, dataset_id: str, version: DatasetVersion) -> None:
-        """Register a dataset version in the in-memory registry."""
+        """Register a dataset version in the in-memory registry and persist to SQLite."""
+        import sqlite3
         _dataset_registry[dataset_id] = version
+        try:
+            with sqlite3.connect(_DB_PATH) as conn:
+                conn.execute(
+                    "INSERT INTO datasets (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+                    (dataset_id, version.model_dump_json()),
+                )
+                conn.commit()
+        except Exception:
+            pass
 
     def get_dataset_version(self, dataset_id: str) -> Optional[DatasetVersion]:
         return _dataset_registry.get(dataset_id)
@@ -130,7 +170,18 @@ class SessionStore:
         ]
 
     def set_dictionary(self, dataset_id: str, entries: List[DataDictionaryEntry]) -> None:
+        import sqlite3
         _dictionary_registry[dataset_id] = entries
+        try:
+            with sqlite3.connect(_DB_PATH) as conn:
+                data_json = json.dumps([e.model_dump() for e in entries])
+                conn.execute(
+                    "INSERT INTO dictionaries (dataset_id, data) VALUES (?, ?) ON CONFLICT(dataset_id) DO UPDATE SET data=excluded.data",
+                    (dataset_id, data_json),
+                )
+                conn.commit()
+        except Exception:
+            pass
 
     def get_dictionary(self, dataset_id: str) -> Optional[List[DataDictionaryEntry]]:
         return _dictionary_registry.get(dataset_id)
